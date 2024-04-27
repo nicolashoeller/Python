@@ -1,32 +1,36 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
-def main():
-    url = 'http://web-16.challs.olicyber.it/'
+def crawl(url, max_depth=4, depth=0):
+    if depth > max_depth:
+        return
 
-    if url.endswith('/'):
-        url = url.rstrip('/')
-    
-    soup = getRequest(url)
-    tags = soup.find_all('a')
-    for tag in tags:
-        newUrl = getNewUrl(url, tag)
-        print(newUrl)
-        print("Redirecting...")
-    
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    print("Crawling:", url)
 
-def getRequest(url):
-    respone = requests.get(url)
-    html_doc = respone.text
-    soup = BeautifulSoup(html_doc, 'html.parser')
-    return soup
+    links = soup.find_all('a', href=True)
+    for link in links:
+        next_url = link['href']
+        if not next_url.startswith('http'):
+            next_url = url + next_url
+        
+        response = requests.get(next_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        for h_tag in ['h1']:
+            tags = soup.find_all(h_tag)
+            for tag in tags:
+                match = re.search(r'flag\{.*?\}', tag.text)
+                if match:
+                    print("Flag:", match.group())
 
-def getNewUrl(url, tag):
-    href = tag.get('href')
-    if href:
-        newUrl = url + href
-        return newUrl
-    
+        crawl(next_url, max_depth, depth + 1)
 
-if __name__ == '__main__':
-    main()
+start_url = 'http://web-16.challs.olicyber.it/'
+
+if start_url.endswith('/'):
+    start_url = start_url.rstrip('/')
+
+crawl(start_url)
